@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>簡易計算器</title>
+    <style>
+        body { font-family: sans-serif; padding: 50px; background-color: #f9f9f9; }
+        .box { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: inline-block; }
+        input, select, button { padding: 10px; font-size: 1.1rem; border: 1px solid #ccc; border-radius: 5px; margin: 5px; }
+        button { background-color: #28a745; color: white; border: none; cursor: pointer; transition: 0.3s; }
+        button:hover { background-color: #218838; }
+        #display { margin-top: 20px; font-size: 1.5rem; font-weight: bold; color: #333; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h3>輸入運算式</h3>
+    
+    <input type="number" id="x" placeholder="數字 x">
+
+    <select id="opt">
+        <option value="+">+</option>
+        <option value="-">-</option>
+        <option value="*">×</option>
+        <option value="/">÷</option>
+    </select>
+
+    <input type="number" id="y" placeholder="數字 y">
+
+    <button onclick="doMath()">計算</button>
+
+    <div id="display">結果：?</div>
+</div>
+
+<script>
+    function doMath() {
+      
+        const num1 = parseFloat(document.getElementById('x').value);
+        const num2 = parseFloat(document.getElementById('y').value);
+        const op = document.getElementById('opt').value;
+        const screen = document.getElementById('display');
+
+        if (isNaN(num1) || isNaN(num2)) {
+            screen.innerText = "請輸入完整數字";
+            return;
+        }
+        let result;
+        if (op === '+') result = num1 + num2;
+        else if (op === '-') result = num1 - num2;
+        else if (op === '*') result = num1 * num2;
+        else if (op === '/') {
+            result = (num2 !== 0) ? num1 / num2 : "錯誤 (不能除以0)";
+        }
+
+        screen.innerText = "結果：" + result;
+    }
+</script>
+      <a href="/">返回首頁</a>
+
+</body>
+</html>
