@@ -1,8 +1,3 @@
-import requests
-import json
-from bs4 import BeautifulSoup
-from flask import Flask, jsonify, Response
-
 import random
 import os
 import json
@@ -10,7 +5,6 @@ from flask import Flask, render_template, request
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
-
 
 # --- Firebase 初始化邏輯 (加強版) ---
 if not firebase_admin._apps:  # 避免 Vercel 重複初始化導致報錯
@@ -50,8 +44,6 @@ def index():
     link += "<a href='/operation'>數學運算</a><hr>"
     link += "<a href='/cup'>擲茭</a><hr>"
     link += "<a href='/read'>讀取firestore資料(搜尋老師)</a><br><hr>"
-    link += "<a href='/spider1'>蜘蛛</a><br><hr>"
-    link += "<a href='movie'>即將上線電影</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -145,63 +137,6 @@ def read():
 
     html_content += '<br><a href="/">回到首頁</a></body></html>'
     return html_content
-
-@app.route("/spider1")
-def sp1():
-    R=""
-    url="https://0414copy.vercel.app/about"
-    Data = requests.get(url)
-    Data.encoding = "utf-8"
-    #print(Data.text)
-    sp = BeautifulSoup(Data.text, "html.parser")
-    result=sp.select("td a")
-
-    for item in result:
-        R +=item.text + "<br>" + item.get("href") + "<br><br>"
-    return R
-
-
-
-@app.route("/movie")
-def movie():
-    url = "https://www.atmovies.com.tw/movie/next/"
-    
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
-    }
-    
-    Data = requests.get(url, headers=headers)
-    Data.encoding = "utf-8"
-    
-    sp = BeautifulSoup(Data.text, "html.parser")
-    result = sp.select(".filmListAllX li")
-    
-    movies = []
-    for item in result:
-        a_tag = item.find("a")
-        if a_tag:
-            img_tag = item.find("img")
-            if img_tag and img_tag.get("alt"):
-                name = img_tag.get("alt")
-            else:
-                name = a_tag.get_text(strip=True)
-            
-            href = a_tag.get("href")
-            if href:
-                full_link = "https://www.atmovies.com.tw" + href
-            else:
-                full_link = "#"
-            
-            movies.append({"name": name, "link": full_link})
-    
-    # 產生 HTML（每個電影名稱都是超連結）
-    html = '<meta charset="UTF-8"><h1>即將上映電影</h1><ul>'
-    for m in movies:
-        html += f'<li><a href="{m["link"]}" target="_blank">{m["name"]}</a></li>'
-    html += '</ul>'
-    
-    return Response(html, mimetype='text/html; charset=utf-8')
-
 
 if __name__ == "__main__":
     app.run(debug=True)
