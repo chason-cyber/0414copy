@@ -53,6 +53,7 @@ def index():
     link += "<a href='/spider1'>蜘蛛</a><br><hr>"
     link += "<a href='movie'>即將上線電影</a><br><hr>"
     link += "<a href='movie2'>讀取開眼電影即將上映影片，寫入Firestore</a><br><hr>"
+    link += "<a href='movie3'>查詢相關電影資訊</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -238,8 +239,62 @@ def movie2():
     doc_ref.set(doc)    
     return "近期上映電影已爬蟲及存檔完畢，網站最近更新日期為：" + lastUpdate 
 
+@app.route("/movie3", methods=["GET", "POST"])
+def movie3():
+    # 這是頁面的基礎 CSS 樣式，讓結果好看一點 (非外部檔案)
+    style = """
+    <style>
+        body { font-family: sans-serif; line-height: 1.6; padding: 20px; }
+        .movie-item { border-bottom: 1px solid #ccc; padding: 10px 0; }
+        .title { color: #2c3e50; font-size: 1.2em; font-weight: bold; }
+    </style>
+    """
+    
+    if request.method == "POST":
+        # 取得使用者輸入
+        keyword = request.form.get("MovieTitle", "").strip()
+        
+        if not keyword:
+            return f"{style}<h2>請輸入關鍵字！</h2><a href='/movie3'>返回</a>"
 
+        # 模擬查詢結果介面
+        header = f"{style}<h1>即將上映查詢</h1>"
+        header += f"<h3>查詢結果 (關鍵字: {keyword}):</h3><hr>"
+        
+        # 從 Firebase 篩選
+        movies_ref = db.collection("電影")
+        docs = movies_ref.stream()
 
+        results_html = ""
+        count = 0
+        for doc in docs:
+            movie = doc.to_dict()
+            if keyword.lower() in movie['title'].lower():
+                count += 1
+                results_html += f"""
+                <div class="movie-item">
+                    <div class="title">{count}. {movie['title']}</div>
+                    <div>上映日期: {movie['showDate']}</div>
+                    <div>連結: <a href="{movie['hyperlink']}" target="_blank">查看詳情</a></div>
+                </div>
+                """
+        
+        if count == 0:
+            results_html = "<p>查無相關電影資訊。</p>"
+        
+        return header + results_html + '<br><a href="/movie3">繼續查詢</a>'
 
+    else:
+        # GET 請求：顯示輸入框
+        return f"""
+        {style}
+        <h1>即將上映查詢</h1>
+        <form action="/movie3" method="POST">
+            <label>請輸入電影片名關鍵字：</label>
+            <input type="text" name="MovieTitle" placeholder="例如：人" required>
+            <button type="submit">查詢</button>
+        </form>
+        """
+        
 if __name__ == "__main__":
     app.run(debug=True)
