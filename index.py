@@ -54,7 +54,8 @@ def index():
     link += "<a href='movie'>即將上線電影</a><br><hr>"
     link += "<a href='movie2'>讀取開眼電影即將上映影片，寫入Firestore</a><br><hr>"
     link += "<a href='movie3'>查詢相關電影資訊</a><br><hr>"
-    link += "<a href='road'>查詢道路</a><br><hr>"
+    link += "<a href='road'>台中市十大肇事路口</a><br><hr>"
+    link += "<a href='weather'>輸入欲查詢的縣市</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -318,6 +319,52 @@ def road():
 
     for item in JsonData:
         Result += f"{item.get('路口名稱', '')}：發生{item.get('總件數', '')}件，主因是{item.get('主要肇因', '')}<br>"
+    return Result
+
+@app.route("/weather", methods=["GET", "POST"])
+def weather():
+    # 建立基礎的 HTML 介面
+    Result = "<h2>縣市天氣查詢</h2><hr>"
+    Result += """
+        <form method="POST">
+            請輸入欲查詢的縣市：<input type="text" name="city" placeholder="例如：臺中市">
+            <button type="submit">查詢</button>
+        </form>
+        <br>
+    """
+
+    if request.method == "POST":
+        city_input = request.form.get("city")
+        if city_input:
+            city = city_input.replace("台", "臺")
+            token = "rdec-key-123-45678-011121314"
+            url = f"https://opendata.cwa.gov.tw/api/v1/rest/datastore/F-C0032-001?Authorization={token}&format=JSON&locationName={city}"
+            
+            try:
+                # 取得 API 資料
+                Data = requests.get(url, verify=False, timeout=10)
+                Data.raise_for_status()
+                JsonData = Data.json()
+                
+                # 依照你原本 weather.py 的解析邏輯提取資料
+                # 這裡加入判斷，防止找不到縣市時程式崩潰
+                if JsonData["records"]["location"]:
+                    location_data = JsonData["records"]["location"][0]
+                    weather_element = location_data["weatherElement"]
+                    
+                    # 取得天氣現象 (Wx) 與 降雨機率 (PoP)
+                    weather_desc = weather_element[0]["time"][0]["parameter"]["parameterName"]
+                    rain_chance = weather_element[1]["time"][0]["parameter"]["parameterName"]
+                    
+                    Result += f"<b>{city}</b> 目前預報：{weather_desc}，降雨機率：{rain_chance}%"
+                else:
+                    Result += f"<span style='color:red;'>找不到「{city}」的資料，請確認名稱是否輸入正確。</span>"
+                    
+            except Exception as e:
+                Result += f"<span style='color:red;'>系統錯誤或無法連接 API：{str(e)}</span>"
+        else:
+            Result += "請輸入縣市名稱。"
+
     return Result
         
 if __name__ == "__main__":
