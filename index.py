@@ -54,6 +54,7 @@ def index():
     link += "<a href='movie'>即將上線電影</a><br><hr>"
     link += "<a href='movie2'>讀取開眼電影即將上映影片，寫入Firestore</a><br><hr>"
     link += "<a href='movie3'>查詢相關電影資訊</a><br><hr>"
+    link += "<a href='road'>查詢道路</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -295,6 +296,29 @@ def movie3():
             <button type="submit">查詢</button>
         </form>
         """
+
+@app.route("/road")
+def road():
+    Result = "<h2>路口</h2><hr>"
+    local_file = os.path.join(os.path.dirname(__file__), "臺中市113年10月份十大高肇事路口.JSON")
+    if os.path.exists(local_file):
+        with open(local_file, "r", encoding="utf-8") as f:
+            JsonData = json.load(f)
+    else:
+        url = "https://newdatacenter.taichung.gov.tw/api/v1/no-auth/resource.download?rid=a1b899c0-511f-4e3d-b22b-814982a97e41"
+        Data = requests.get(url, timeout=10)
+        Data.raise_for_status()
+        try:
+            JsonData = Data.json()
+        except ValueError:
+            JsonData = json.loads(Data.text)
+
+    if not isinstance(JsonData, list):
+        return "資料格式錯誤，無法讀取路口資料。"
+
+    for item in JsonData:
+        Result += f"{item.get('路口名稱', '')}：發生{item.get('總件數', '')}件，主因是{item.get('主要肇因', '')}<br>"
+    return Result
         
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True) 
