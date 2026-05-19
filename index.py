@@ -61,6 +61,7 @@ def index():
     link += "<a href='webhook'>電影</a><br><hr>" 
     link += "<a href='webhook2'>電影2</a><br><hr>"
     link += "<a href='webhook3'>電影3</a><br><hr>"
+    link += "<a href='demo'>路徑</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -482,6 +483,10 @@ def webhook3():
                 result += "介紹：" + dict["hyperlink"] + "\n\n"
         info += result
     return make_response(jsonify({"fulfillmentText": info}))
+
+@app.route("/demo")
+def demo():
+    return render_template("demo.html")
 
 
 
