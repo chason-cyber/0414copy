@@ -494,7 +494,7 @@ def webhook3():
         info =  req["queryResult"]["queryText"]
 
         ai_config = types.GenerateContentConfig(
-        max_output_tokens = 128
+        max_output_tokens = 500
     )
 
 
