@@ -490,23 +490,41 @@ def webhook3():
         info += result
 
 
-    elif (action == "input.unknown"):
-        info =  req["queryResult"]["queryText"]
+   elif (action == "input.unknown"):
+    # 1. 取得使用者實際輸入的文字（如：靜宜資管特色）
+    info = req["queryResult"]["queryText"]
 
-        ai_config = types.GenerateContentConfig(
-        max_output_tokens = 500
+    # 2. 設定限制 500 個 tokens 的設定檔
+    ai_config = types.GenerateContentConfig(
+        max_output_tokens=500
     )
 
-
+    try:
+        # 3. 呼叫 Gemini API（注意：新版 SDK 的 config 參數名稱通常為 config=...）
         response = client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents='我想查詢靜宜大學資管系的評價？',
-                config=ai_config,
-            )
+            model='gemini-3.5-flash',
+            contents=info,  # 將固定字串改為使用者輸入的變數
+            config=ai_config,
+        )
 
-        info =response.text
+        # 4. 取得 AI 回傳的文字
+        reply_text = response.text
 
-    return make_response(jsonify({"fulfillmentText": info}))
+    except Exception as e:
+        # 避免 API 發生錯誤時整支程式當掉，回傳錯誤訊息以便除錯
+        reply_text = f"API 發生錯誤: {str(e)}"
+
+    # 5. 回傳給 Dialogflow 的標準 JSON 格式
+    return make_response(jsonify({
+        "fulfillmentText": reply_text,
+        "fulfillmentMessages": [
+            {
+                "text": {
+                    "text": [reply_text]
+                }
+            }
+        ]
+    }))
 
 @app.route("/demo")
 def demo():
