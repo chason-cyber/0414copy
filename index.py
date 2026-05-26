@@ -467,64 +467,53 @@ def webhook2():
         info = "您選擇的電影分級是：" + rate
     return make_response(jsonify({"fulfillmentText": info}))
 
-@app.route("/webhook3", methods=["POST"])
+@app.route("/webhook3", methods=["GET", "POST"])
 def webhook3():
-    # build a request object
+    if request.method == "GET":
+        return "Webhook 路由正常運作中！請使用 POST 請求存取。"
+
     req = request.get_json(force=True)
-    # fetch queryResult from json
-    action =  req.get("queryResult").get("action")
-    #msg =  req.get("queryResult").get("queryText")
-    #info = "動作：" + action + "； 查詢內容：" + msg
-    if (action == "rateChoice"):
-        rate =  req.get("queryResult").get("parameters").get("rate")
-        info = "我是陳宇謙開發的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n"
+    query_result = req.get("queryResult", {})
+    action = query_result.get("action")
+    user_query = query_result.get("queryText")  # 使用者輸入的任何未知內容（例如：靜宜資管特色?）
+
+    info = ""
+
+    # 1. 電影分級查詢
+    if action == "rateChoice":
+        rate = query_result.get("parameters", {}).get("rate")
+        info = f"我是開發的電影聊天機器人，您選擇的電影分級是：{rate}，本週電影含分級：\n"
+       
         db = firestore.client()
-        collection_ref = db.collection("本週新片含分級")
+        collection_ref = db.collection("本週電影含分級")
         docs = collection_ref.get()
         result = ""
         for doc in docs:
-            dict = doc.to_dict()
-            if rate in dict["rate"]:
-                result += "片名：" + dict["title"] + "\n"
-                result += "介紹：" + dict["hyperlink"] + "\n\n"
+            movie_dict = doc.to_dict()
+            if rate and rate in movie_dict.get("rate", ""):
+                result += "片名：" + movie_dict.get("title", "") + "\n"
+                result += "介紹：" + movie_dict.get("hyperlink", "") + "\n\n"
         info += result
 
+    # 2. 修改這裡：當 Dialogflow 認不出這句話時（觸發 input.unknown）
+    elif action == "input.unknown":
+        try:
+            # 直接把使用者問的「任何話」丟給 Gemini AI
+            response = client.models.generate_content(
+                model='gemini-3.5-flash',
+                contents=user_query,
+                config=ai_config
+            )
+            info = response.text
+        except Exception as e:
+            info = f"AI 暫時無法回應，錯誤原因：{e}"
 
-   elif (action == "input.unknown"):
-    # 1. 取得使用者實際輸入的文字（如：靜宜資管特色）
-    info = req["queryResult"]["queryText"]
+    # 3. 預設未知狀況
+    else:
+        info = f"收到未知的 Action: {action}，您輸入的是：{user_query}"
 
-    # 2. 設定限制 500 個 tokens 的設定檔
-    ai_config = types.GenerateContentConfig(
-        max_output_tokens=500
-    )
+    return make_response(jsonify({"fulfillmentText": info}))
 
-    try:
-        # 3. 呼叫 Gemini API（注意：新版 SDK 的 config 參數名稱通常為 config=...）
-        response = client.models.generate_content(
-            model='gemini-3.5-flash',
-            contents=info,  # 將固定字串改為使用者輸入的變數
-            config=ai_config,
-        )
-
-        # 4. 取得 AI 回傳的文字
-        reply_text = response.text
-
-    except Exception as e:
-        # 避免 API 發生錯誤時整支程式當掉，回傳錯誤訊息以便除錯
-        reply_text = f"API 發生錯誤: {str(e)}"
-
-    # 5. 回傳給 Dialogflow 的標準 JSON 格式
-    return make_response(jsonify({
-        "fulfillmentText": reply_text,
-        "fulfillmentMessages": [
-            {
-                "text": {
-                    "text": [reply_text]
-                }
-            }
-        ]
-    }))
 
 @app.route("/demo")
 def demo():
