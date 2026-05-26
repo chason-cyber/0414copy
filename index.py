@@ -13,7 +13,6 @@ from flask import Flask, render_template, request, make_response, jsonify
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
-from google.genai import types
 
 
 # --- Firebase 初始化邏輯 (加強版) ---
@@ -468,53 +467,46 @@ def webhook2():
         info = "您選擇的電影分級是：" + rate
     return make_response(jsonify({"fulfillmentText": info}))
 
-@app.route("/webhook3", methods=["GET", "POST"])
+@app.route("/webhook3", methods=["POST"])
 def webhook3():
-    if request.method == "GET":
-        return "Webhook 路由正常運作中！請使用 POST 請求存取。"
-
+    # build a request object
     req = request.get_json(force=True)
-    query_result = req.get("queryResult", {})
-    action = query_result.get("action")
-    user_query = query_result.get("queryText")  # 使用者輸入的任何未知內容（例如：靜宜資管特色?）
-
-    info = ""
-
-    # 1. 電影分級查詢
-    if action == "rateChoice":
-        rate = query_result.get("parameters", {}).get("rate")
-        info = f"我是開發的電影聊天機器人，您選擇的電影分級是：{rate}，本週電影含分級：\n"
-       
+    # fetch queryResult from json
+    action =  req.get("queryResult").get("action")
+    #msg =  req.get("queryResult").get("queryText")
+    #info = "動作：" + action + "； 查詢內容：" + msg
+    if (action == "rateChoice"):
+        rate =  req.get("queryResult").get("parameters").get("rate")
+        info = "我是陳宇謙開發的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n"
         db = firestore.client()
-        collection_ref = db.collection("本週電影含分級")
+        collection_ref = db.collection("本週新片含分級")
         docs = collection_ref.get()
         result = ""
         for doc in docs:
-            movie_dict = doc.to_dict()
-            if rate and rate in movie_dict.get("rate", ""):
-                result += "片名：" + movie_dict.get("title", "") + "\n"
-                result += "介紹：" + movie_dict.get("hyperlink", "") + "\n\n"
+            dict = doc.to_dict()
+            if rate in dict["rate"]:
+                result += "片名：" + dict["title"] + "\n"
+                result += "介紹：" + dict["hyperlink"] + "\n\n"
         info += result
 
-    # 2. 修改這裡：當 Dialogflow 認不出這句話時（觸發 input.unknown）
-    elif action == "input.unknown":
-        try:
-            # 直接把使用者問的「任何話」丟給 Gemini AI
-            response = client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents=user_query,
-                config=ai_config
-            )
-            info = response.text
-        except Exception as e:
-            info = f"AI 暫時無法回應，錯誤原因：{e}"
 
-    # 3. 預設未知狀況
-    else:
-        info = f"收到未知的 Action: {action}，您輸入的是：{user_query}"
+    elif (action == "input.unknown"):
+        info =  req["queryResult"]["queryText"]
+
+        ai_config = types.GenerateContentConfig(
+        max_output_tokens = 500
+    )
+
+
+        response = client.models.generate_content(
+                model='gemini-3.5-flash',
+                contents='我想查詢靜宜大學資管系的評價？',
+                config=ai_config,
+            )
+
+        info =response.text
 
     return make_response(jsonify({"fulfillmentText": info}))
-
 
 @app.route("/demo")
 def demo():
