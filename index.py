@@ -500,7 +500,7 @@ def webhook3():
 
         response = client.models.generate_content(
                 model='gemini-3.5-flash',
-                contents= req["queryResult"]["queryText"],
+                contents='我想查詢靜宜大學資管系的評價？',
                 config=ai_config,
             )
 
