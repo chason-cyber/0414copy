@@ -2,6 +2,7 @@ import requests
 import json
 from bs4 import BeautifulSoup
 from flask import Flask, jsonify, Response
+from google import genai
 
 import random
 import os
@@ -40,6 +41,8 @@ db = firestore.client() if firebase_admin._apps else None
 
 app = Flask(__name__)
 
+client = genai.Client()
+
 @app.route("/")
 def index():
     link = "<h1>歡迎進入陳宇謙的網站網頁</h1>"
@@ -62,6 +65,7 @@ def index():
     link += "<a href='webhook2'>電影2</a><br><hr>"
     link += "<a href='webhook3'>電影3</a><br><hr>"
     link += "<a href='demo'>路徑</a><br><hr>"
+    link += "<a href='AI'>問AI問題</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -487,6 +491,20 @@ def webhook3():
 @app.route("/demo")
 def demo():
     return render_template("demo.html")
+
+
+
+@app.route("/AI")
+def AI():
+    # 每次使用者拜訪該路徑時，直接使用全域的 client 呼叫模型
+    response = client.models.generate_content(
+        model='gemini-3.5-flash',
+        contents='我想查詢靜宜大學資管系的評價？',
+    )
+    
+    # 回傳生成的文字
+    return response.text
+
 
 
 
