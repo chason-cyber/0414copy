@@ -68,6 +68,7 @@ def index():
     link += "<a href='demo'>路徑</a><br><hr>"
     link += "<a href='AI'>AI</a><br><hr>"
     link += "<a href='ask'>問AI問題</a><br><hr>"
+    link += "<a href='webhook7'>問問題</a><br><hr>"
     return link
 
 @app.route("/mis")
@@ -513,6 +514,14 @@ def demo():
     return render_template("demo.html")
 
 
+api_key = os.environ.get("GEMINI_API_KEY")
+client = genai.Client(api_key=api_key)
+
+from flask import Flask, request, render_template, make_response, jsonify
+# 確保你已經正確匯入 google.genai 的 types
+# from google.genai import types 
+
+app = Flask(__name__)
 
 @app.route("/AI")
 def AI():
@@ -526,7 +535,7 @@ def AI():
     return response.text
 
 
-@app.route('/ask', methods=['GET', 'POST']) 
+@app.route('/ask', methods=['GET', 'POST'])
 def ask():
     if request.method == "POST":
         user_prompt = request.form.get('prompt', '')
@@ -540,11 +549,55 @@ def ask():
             return response.text
         except Exception as e:
             return f"發生錯誤: {str(e)}", 500
-
-    else:    
+            
+    else:
         # 當使用者直接打開網頁 (GET) 時，顯示輸入框畫面
         return render_template("ask.html")
 
+
+@app.route("/webhook7", methods=["POST"])
+def webhook7():
+    # build a request object
+    req = request.get_json(force=True)
+    
+    # fetch queryResult from json
+    action = req["queryResult"]["action"]
+    info = ""
+    
+    if action == "rateChoice":
+        rate = req["queryResult"]["parameters"]["rate"]
+        info = "我是陳宇謙設計的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n\n"
+        
+        db = firestore.client()
+        collection_ref = db.collection("本週新片含分級")
+        docs = collection_ref.get()
+        result = ""
+        
+        for doc in docs:
+            # 將變數名稱從 dict 改為 doc_data，避免與 Python 內建的 dict() 衝突
+            doc_data = doc.to_dict()
+            if rate in doc_data["rate"]:
+                result += "片名：" + doc_data["title"] + ";\n"
+                result += "連結：" + doc_data["hyperlink"] + "\n\n"
+                
+        info += result
+        
+    elif action == "input.unknown":
+        # 建立設定物件，設定希望限制的最大 Token 數
+        ai_config = types.GenerateContentConfig(
+            max_output_tokens=500
+        )
+        
+        # 呼叫 Gemini 模型處理未知的輸入
+        response = client.models.generate_content(
+            model='gemini-3.5-flash',
+            contents=req["queryResult"]["queryText"],
+            config=ai_config,
+        )
+        
+        info = response.text
+        
+    return make_response(jsonify({"fulfillmentText": info}))
 
 
         
