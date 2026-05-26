@@ -3,6 +3,7 @@ import json
 from bs4 import BeautifulSoup
 from flask import Flask, jsonify, Response
 from google import genai
+from google.genai import types
 
 import random
 import os
@@ -488,12 +489,19 @@ def webhook3():
                 result += "介紹：" + dict["hyperlink"] + "\n\n"
         info += result
 
+
     elif (action == "input.unknown"):
         info =  req["queryResult"]["queryText"]
+
+        ai_config = types.GenerateContentConfig(
+        max_output_tokens = 128
+    )
+
 
         response = client.models.generate_content(
                 model='gemini-3.5-flash',
                 contents= req["queryResult"]["queryText"],
+                config=ai_config,
             )
 
         info =response.text
