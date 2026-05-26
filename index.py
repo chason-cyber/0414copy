@@ -517,11 +517,6 @@ def demo():
 api_key = os.environ.get("GEMINI_API_KEY")
 client = genai.Client(api_key=api_key)
 
-from flask import Flask, request, render_template, make_response, jsonify
-# 確保你已經正確匯入 google.genai 的 types
-# from google.genai import types 
-
-app = Flask(__name__)
 
 @app.route("/AI")
 def AI():
