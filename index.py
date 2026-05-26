@@ -491,7 +491,7 @@ def webhook3():
 
 
     elif (action == "input.unknown"):
-        info =  req["queryResult"]["queryText"]
+        #info =  req["queryResult"]["queryText"]
 
         ai_config = types.GenerateContentConfig(
         max_output_tokens = 500
@@ -500,7 +500,7 @@ def webhook3():
 
         response = client.models.generate_content(
                 model='gemini-3.5-flash',
-                contents='我想查詢靜宜大學資管系的評價？',
+                contents=req["queryResult"]["queryText"],
                 config=ai_config,
             )
 
