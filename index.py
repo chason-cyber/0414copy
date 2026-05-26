@@ -13,6 +13,7 @@ from flask import Flask, render_template, request, make_response, jsonify
 from datetime import datetime
 import firebase_admin
 from firebase_admin import credentials, firestore
+from google.genai import types
 
 
 # --- Firebase 初始化邏輯 (加強版) ---
