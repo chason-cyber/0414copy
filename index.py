@@ -470,21 +470,17 @@ def webhook2():
 
 @app.route("/webhook3", methods=["POST"])
 def webhook3():
-    # 1. 解析 Dialogflow 傳來的 JSON 請求
     req = request.get_json(force=True)
-    
-    # 安全地取得 queryResult 及其內部的欄位，避免 KeyError
     query_result = req.get("queryResult", {})
     action = query_result.get("action", "")
     query_text = query_result.get("queryText", "")
     
-    # 預設一個回覆訊息，防止後續邏輯漏掉賦值
-    info = "抱歉，聊天機器人目前無法處理此請求。"
+    info = "機器人忙碌中，請再試一次。"
 
-    # 2. 判斷 Dialogflow 的 意圖/動作 (Action)
-    
-    # 情況 A：使用者選擇電影分級
+    # 情況 A：電影分級
     if action == "rateChoice":
+        # 只有在用到 Firebase 時，才在裡面 import，加快冷啟動速度
+        from firebase_admin import credentials, firestore
         rate = query_result.get("parameters", {}).get("rate", "")
         info = f"我是陳宇謙開發的電影聊天機器人，您選擇的電影分級是：{rate}，相關電影：\n"
         
@@ -495,41 +491,39 @@ def webhook3():
             result = ""
             for doc in docs:
                 movie_dict = doc.to_dict()
-                # 確保欄位存在且包含使用者選的分級
                 if "rate" in movie_dict and "title" in movie_dict:
                     if rate in movie_dict["rate"]:
                         result += f"片名：{movie_dict.get('title', '未知')}\n"
                         result += f"介紹：{movie_dict.get('hyperlink', '無連結')}\n\n"
             info += result if result else "目前沒有找到符合該分級的電影。\n"
         except Exception as e:
-            info = f"資料庫讀取失敗，錯誤原因: {str(e)}"
+            info = f"資料庫讀取失敗: {str(e)}"
 
-    # 情況 B：觸發預設回退意圖（當 Dialogflow 聽不懂時，交給 Gemini 回答）
+    # 情況 B：交給 Gemini
     elif action in ["input.unknown", "輸入未知", ""]:
         try:
-            # 設定最大輸出 Token 數為 500，控制回應長度並加快速度
-            ai_config = types.GenerateContentConfig(
-                max_output_tokens=500
-            )
-
-            # 呼叫 Gemini 2.5 穩定版模型
+            # 只有用到 Gemini 時才在裡面載入這兩個大套件
+            from google import genai
+            from google.genai import types
+            
+            # 區域初始化 client
+            client = genai.Client()
+            
+            ai_config = types.GenerateContentConfig(max_output_tokens=500)
             response = client.models.generate_content(
                 model='gemini-2.5-flash',  
                 contents=query_text,
                 config=ai_config,
             )
             
-            # 成功取得 Gemini 的回答
             if response and response.text:
                 info = response.text
             else:
                 info = "Gemini 沒有回傳任何文字。"
                 
         except Exception as e:
-            # 關鍵：若 Gemini 呼叫失敗或超時，直接把錯誤回傳給 Dialogflow 顯示，方便除錯
             info = f"Gemini 呼叫失敗。錯誤訊息: {str(e)}"
 
-    # 3. 將結果包裝成 Dialogflow 要求的 JSON 格式回傳
     return make_response(jsonify({"fulfillmentText": info}))
 
 if __name__ == "__main__":
