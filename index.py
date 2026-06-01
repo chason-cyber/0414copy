@@ -580,7 +580,7 @@ def webhook7():
     elif action == "input.unknown":
         # 建立設定物件，設定希望限制的最大 Token 數
         ai_config = types.GenerateContentConfig(
-            max_output_tokens=500
+            max_output_tokens=1000
         )
         
         # 呼叫 Gemini 模型處理未知的輸入
