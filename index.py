@@ -478,7 +478,7 @@ def webhook3():
     #info = "動作：" + action + "； 查詢內容：" + msg
     if (action == "rateChoice"):
         rate =  req.get("queryResult").get("parameters").get("rate")
-        info = "我是陳宇謙開發的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n"
+        info = "我是吳柏慶開發的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n"
         db = firestore.client()
         collection_ref = db.collection("本週新片含分級")
         docs = collection_ref.get()
@@ -490,22 +490,21 @@ def webhook3():
                 result += "介紹：" + dict["hyperlink"] + "\n\n"
         info += result
 
-
     elif (action == "input.unknown"):
         #info =  req["queryResult"]["queryText"]
 
+        # 2. 建立設定物件，設定你希望限制的最大 Token 數（例如 500）
         ai_config = types.GenerateContentConfig(
-        max_output_tokens = 500
-    )
+            max_output_tokens = 500
+        )
 
 
         response = client.models.generate_content(
-                model='gemini-3.5-flash',
-                contents=req["queryResult"]["queryText"],
-                config=ai_config,
-            )
-
-        info =response.text
+        model='gemini-3.5-flash', 
+        contents=req["queryResult"]["queryText"],
+        config=ai_config,
+        )
+        info = response.text
 
     return make_response(jsonify({"fulfillmentText": info}))
 
