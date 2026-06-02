@@ -587,6 +587,7 @@ def ask():
         # 當使用者直接打開網頁 (GET) 時，顯示輸入框畫面
         return render_template("ask.html")
 
+
 @app.route("/webhook7", methods=["POST"])
 def webhook7():
     req = request.get_json(force=True)
@@ -596,8 +597,9 @@ def webhook7():
     
     info = "機器人忙碌中，請再試一次。"
 
-    # 情況 A：電影分級
+    # 情況 A：電影分級 (讀取 Firestore 資料庫)
     if action == "rateChoice":
+        # 只有在用到 Firebase 時，才在裡面 import，加快冷啟動速度
         from firebase_admin import credentials, firestore
         rate = query_result.get("parameters", {}).get("rate", "")
         info = f"我是陳宇謙開發的電影聊天機器人，您選擇的電影分級是：{rate}，相關電影：\n"
@@ -617,25 +619,42 @@ def webhook7():
         except Exception as e:
             info = f"資料庫讀取失敗: {str(e)}"
 
-    # 情況 B：交給 Gemini (Dialogflow 不了解的問題)
+    # 情況 B：交給 Gemini (Dialogflow 不了解的問題 / Default Fallback Intent)
     elif action in ["input.unknown", "輸入未知", ""]:
+        # 先準備好你指定的 7 大優化策略罐頭文字，作為 API 故障時的完美備援
+        strategy_text = (
+            "針對 Dialogflow 無法識別的輸入，建議採取以下優化策略：\n"
+            "1. **Default Fallback Intent (預設後備意圖)**：設定友善的引導回覆，並結合追蹤機制記錄未匹配的對話。\n"
+            "2. **Training Phrases (訓練短語)**：大量增加與需求相關的語意變化與口語表達。\n"
+            "3. **Knowledge Base (知識庫)**：匯入 FAQ 文件，利用自動問答功能處理未定義的語句。\n"
+            "4. **Entities (實體)**：檢查是否漏掉關鍵詞彙，強化對特定名詞或領域術語的辨識度。\n"
+            "5. **Analytics (分析)**：檢視「History」或「Analytics」報表，分析使用者的高頻查詢與失敗路徑。\n"
+            "6. **Context (上下文)**：檢查是否因前後文切斷，導致系統無法正確判斷對話邏輯。\n"
+            "7. **Webhook 處理**：透過後端程式邏輯（如 NLP 服務或關鍵字搜尋）進行第二層補救。"
+        )
+
         try:
+            # 只有用到 Gemini 時才在裡面載入大套件
             from google import genai
             from google.genai import types
             
+            # 區域初始化 client
             client = genai.Client()
             
+            # 定義系統提示詞
             instruction_text = (
                 "你是一個熱心且知識豐富的專業智慧助理。\n"
                 "對於使用者的提問，請回覆重點的關鍵字，不要重述問題。\n"
                 "回答的總字數請幫我控制在 100 字左右，不要太長。"
             )
             
+            # 設定 GenerateContentConfig
             ai_config = types.GenerateContentConfig(
                 max_output_tokens=500,
                 system_instruction=instruction_text
             )
             
+            # 呼叫主流穩定的 'gemini-2.5-flash'
             response = client.models.generate_content(
                 model='gemini-2.5-flash',  
                 contents=query_text,
@@ -645,20 +664,17 @@ def webhook7():
             if response and response.text:
                 info = response.text
             else:
-                info = "抱歉，我現在無法生成回應，請稍後再試。"
+                info = strategy_text  # 如果 AI 回傳空白，直接採用備用文字
                 
         except Exception as e:
-            # 💡 關鍵修正：當 Gemini API 呼叫失敗（如 429 額度用盡）時，啟動備用罐頭文字
-            # 確保回應長度依然維持在 100 字左右，符合作業規範
-            info = (
-                "您好！我目前無法即時處理這個問題。不過如果您對靜宜大學資管系感興趣，"
-                "我們系所專注於資訊技術與企業管理的整合，課程涵蓋大數據分析、網頁開發、"
-                "雲端運算與 AI 應用等核心領域。我們提供豐富的產學實習機會，幫助學生在"
-                "畢業前就累積實戰經驗，打造未來職場競爭力！歡迎詢問更多相關內容。"
-            )
+            # 💡 核心優化：當 API 超出額度（429 錯誤）或網路斷線時，自動走到這裡！
+            # 畫面會直接吐出精美的 7 大策略文字，完全不會噴出英文錯誤訊息
+            info = strategy_text
 
     return make_response(jsonify({"fulfillmentText": info}))
 
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
         
 if __name__ == "__main__":
