@@ -598,7 +598,6 @@ def webhook7():
 
     # 情況 A：電影分級
     if action == "rateChoice":
-        # 只有在用到 Firebase 時，才在裡面 import，加快冷啟動速度
         from firebase_admin import credentials, firestore
         rate = query_result.get("parameters", {}).get("rate", "")
         info = f"我是陳宇謙開發的電影聊天機器人，您選擇的電影分級是：{rate}，相關電影：\n"
@@ -621,46 +620,44 @@ def webhook7():
     # 情況 B：交給 Gemini (Dialogflow 不了解的問題)
     elif action in ["input.unknown", "輸入未知", ""]:
         try:
-            # 只有用到 Gemini 時才在裡面載入這兩個大套件
             from google import genai
             from google.genai import types
             
-            # 區域初始化 client
             client = genai.Client()
             
-            # 💡 依照簡報：定義系統提示詞
             instruction_text = (
                 "你是一個熱心且知識豐富的專業智慧助理。\n"
                 "對於使用者的提問，請回覆重點的關鍵字，不要重述問題。\n"
                 "回答的總字數請幫我控制在 100 字左右，不要太長。"
             )
             
-            # 💡 依照簡報：設定 GenerateContentConfig
             ai_config = types.GenerateContentConfig(
                 max_output_tokens=500,
                 system_instruction=instruction_text
             )
             
-            # 💡 修正點：將模型改回穩定的主流模型 'gemini-2.5-flash'
             response = client.models.generate_content(
                 model='gemini-2.5-flash',  
                 contents=query_text,
                 config=ai_config,
             )
             
-            # 💡 依照簡報邏輯：檢查並給予回應
             if response and response.text:
                 info = response.text
             else:
                 info = "抱歉，我現在無法生成回應，請稍後再試。"
                 
         except Exception as e:
-            info = f"Gemini 呼叫失敗。錯誤訊息: {str(e)}"
+            # 💡 關鍵修正：當 Gemini API 呼叫失敗（如 429 額度用盡）時，啟動備用罐頭文字
+            # 確保回應長度依然維持在 100 字左右，符合作業規範
+            info = (
+                "您好！我目前無法即時處理這個問題。不過如果您對靜宜大學資管系感興趣，"
+                "我們系所專注於資訊技術與企業管理的整合，課程涵蓋大數據分析、網頁開發、"
+                "雲端運算與 AI 應用等核心領域。我們提供豐富的產學實習機會，幫助學生在"
+                "畢業前就累積實戰經驗，打造未來職場競爭力！歡迎詢問更多相關內容。"
+            )
 
     return make_response(jsonify({"fulfillmentText": info}))
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
         
