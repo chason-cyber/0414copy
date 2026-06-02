@@ -469,6 +469,7 @@ def webhook2():
         info = "您選擇的電影分級是：" + rate
     return make_response(jsonify({"fulfillmentText": info}))
 
+
 @app.route("/webhook3", methods=["POST"])
 def webhook3():
     req = request.get_json(force=True)
@@ -500,7 +501,7 @@ def webhook3():
         except Exception as e:
             info = f"資料庫讀取失敗: {str(e)}"
 
-    # 情況 B：交給 Gemini
+    # 情況 B：交給 Gemini (Dialogflow 不了解的問題)
     elif action in ["input.unknown", "輸入未知", ""]:
         try:
             # 只有用到 Gemini 時才在裡面載入這兩個大套件
@@ -510,7 +511,12 @@ def webhook3():
             # 區域初始化 client
             client = genai.Client()
             
-            ai_config = types.GenerateContentConfig(max_output_tokens=2000)
+            # 💡 透過系統指令嚴格要求控制在 100 字左右，並設定對應的 token 上限
+            ai_config = types.GenerateContentConfig(
+                max_output_tokens=250,  # 留一點點緩衝空間，避免字數剛好卡到被切斷
+                system_instruction="你是一個電影聊天機器人小助手。請針對使用者的問題進行簡短回答，回答的總字數必須嚴格控制在 100 字左右（大約 90 ~ 110 字之間），不要寫太長也不要太短。"
+            )
+            
             response = client.models.generate_content(
                 model='gemini-2.5-flash',  
                 contents=query_text,
@@ -529,6 +535,8 @@ def webhook3():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
+    
 
 @app.route("/demo")
 def demo():
