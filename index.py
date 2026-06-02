@@ -470,7 +470,6 @@ def webhook2():
     return make_response(jsonify({"fulfillmentText": info}))
 
 
-
 @app.route("/webhook3", methods=["POST"])
 def webhook3():
     req = request.get_json(force=True)
@@ -512,10 +511,10 @@ def webhook3():
             # 區域初始化 client
             client = genai.Client()
             
-            # 💡 依照簡報：定義系統提示詞（要求回覆重點關鍵字，大約 100 字左右）
+            # 💡 依照簡報：定義系統提示詞
             instruction_text = (
                 "你是一個熱心且知識豐富的專業智慧助理。\n"
-                "對於使用者的提問，請回覆重點的關鍵字，不要重述問題。"
+                "對於使用者的提問，請回覆重點的關鍵字，不要重述問題。\n"
                 "回答的總字數請幫我控制在 100 字左右，不要太長。"
             )
             
@@ -525,9 +524,9 @@ def webhook3():
                 system_instruction=instruction_text
             )
             
-            # 💡 依照簡報：呼叫模型（若擔心超時，可依簡報提示改用 'gemini-2.1-flash-lite' 提升回覆速度）
+            # 💡 修正點：將模型改回穩定的主流模型 'gemini-2.5-flash'
             response = client.models.generate_content(
-                model='gemini-2.1-flash-lite',  # 改用 lite 版模型，速度極快，能穩穩卡進 5 秒限制內
+                model='gemini-2.5-flash',  
                 contents=query_text,
                 config=ai_config,
             )
@@ -546,6 +545,7 @@ def webhook3():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
+    
 
 @app.route("/demo")
 def demo():
