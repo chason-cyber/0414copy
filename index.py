@@ -5,6 +5,7 @@ from flask import Flask, jsonify, Response
 from google import genai
 from google.genai import types
 
+
 import random
 import os
 import json
@@ -509,7 +510,7 @@ def webhook3():
             # 區域初始化 client
             client = genai.Client()
             
-            ai_config = types.GenerateContentConfig(max_output_tokens=500)
+            ai_config = types.GenerateContentConfig(max_output_tokens=2000)
             response = client.models.generate_content(
                 model='gemini-2.5-flash',  
                 contents=query_text,
