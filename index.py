@@ -470,6 +470,7 @@ def webhook2():
     return make_response(jsonify({"fulfillmentText": info}))
 
 
+
 @app.route("/webhook3", methods=["POST"])
 def webhook3():
     req = request.get_json(force=True)
@@ -511,22 +512,31 @@ def webhook3():
             # 區域初始化 client
             client = genai.Client()
             
-            # 💡 透過系統指令嚴格要求控制在 100 字左右，並設定對應的 token 上限
-            ai_config = types.GenerateContentConfig(
-                max_output_tokens=250,  # 留一點點緩衝空間，避免字數剛好卡到被切斷
-                system_instruction="你是一個電影聊天機器人小助手。請針對使用者的問題進行簡短回答，回答的總字數必須嚴格控制在 100 字左右（大約 90 ~ 110 字之間），不要寫太長也不要太短。"
+            # 💡 依照簡報：定義系統提示詞（要求回覆重點關鍵字，大約 100 字左右）
+            instruction_text = (
+                "你是一個熱心且知識豐富的專業智慧助理。\n"
+                "對於使用者的提問，請回覆重點的關鍵字，不要重述問題。"
+                "回答的總字數請幫我控制在 100 字左右，不要太長。"
             )
             
+            # 💡 依照簡報：設定 GenerateContentConfig
+            ai_config = types.GenerateContentConfig(
+                max_output_tokens=500,
+                system_instruction=instruction_text
+            )
+            
+            # 💡 依照簡報：呼叫模型（若擔心超時，可依簡報提示改用 'gemini-2.1-flash-lite' 提升回覆速度）
             response = client.models.generate_content(
-                model='gemini-2.5-flash',  
+                model='gemini-2.1-flash-lite',  # 改用 lite 版模型，速度極快，能穩穩卡進 5 秒限制內
                 contents=query_text,
                 config=ai_config,
             )
             
+            # 💡 依照簡報邏輯：檢查並給予回應
             if response and response.text:
                 info = response.text
             else:
-                info = "Gemini 沒有回傳任何文字。"
+                info = "抱歉，我現在無法生成回應，請稍後再試。"
                 
         except Exception as e:
             info = f"Gemini 呼叫失敗。錯誤訊息: {str(e)}"
@@ -536,7 +546,6 @@ def webhook3():
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
-    
 
 @app.route("/demo")
 def demo():
