@@ -587,50 +587,80 @@ def ask():
         # 當使用者直接打開網頁 (GET) 時，顯示輸入框畫面
         return render_template("ask.html")
 
-
 @app.route("/webhook7", methods=["POST"])
 def webhook7():
-    # build a request object
     req = request.get_json(force=True)
+    query_result = req.get("queryResult", {})
+    action = query_result.get("action", "")
+    query_text = query_result.get("queryText", "")
     
-    # fetch queryResult from json
-    action = req["queryResult"]["action"]
-    info = ""
-    
+    info = "機器人忙碌中，請再試一次。"
+
+    # 情況 A：電影分級
     if action == "rateChoice":
-        rate = req["queryResult"]["parameters"]["rate"]
-        info = "我是陳宇謙設計的電影聊天機器人,您選擇的電影分級是：" + rate + "，相關電影：\n\n"
+        # 只有在用到 Firebase 時，才在裡面 import，加快冷啟動速度
+        from firebase_admin import credentials, firestore
+        rate = query_result.get("parameters", {}).get("rate", "")
+        info = f"我是陳宇謙開發的電影聊天機器人，您選擇的電影分級是：{rate}，相關電影：\n"
         
-        db = firestore.client()
-        collection_ref = db.collection("本週新片含分級")
-        docs = collection_ref.get()
-        result = ""
-        
-        for doc in docs:
-            # 將變數名稱從 dict 改為 doc_data，避免與 Python 內建的 dict() 衝突
-            doc_data = doc.to_dict()
-            if rate in doc_data["rate"]:
-                result += "片名：" + doc_data["title"] + ";\n"
-                result += "連結：" + doc_data["hyperlink"] + "\n\n"
+        try:
+            db = firestore.client()
+            collection_ref = db.collection("本週新片含分級")
+            docs = collection_ref.get()
+            result = ""
+            for doc in docs:
+                movie_dict = doc.to_dict()
+                if "rate" in movie_dict and "title" in movie_dict:
+                    if rate in movie_dict["rate"]:
+                        result += f"片名：{movie_dict.get('title', '未知')}\n"
+                        result += f"介紹：{movie_dict.get('hyperlink', '無連結')}\n\n"
+            info += result if result else "目前沒有找到符合該分級的電影。\n"
+        except Exception as e:
+            info = f"資料庫讀取失敗: {str(e)}"
+
+    # 情況 B：交給 Gemini (Dialogflow 不了解的問題)
+    elif action in ["input.unknown", "輸入未知", ""]:
+        try:
+            # 只有用到 Gemini 時才在裡面載入這兩個大套件
+            from google import genai
+            from google.genai import types
+            
+            # 區域初始化 client
+            client = genai.Client()
+            
+            # 💡 依照簡報：定義系統提示詞
+            instruction_text = (
+                "你是一個熱心且知識豐富的專業智慧助理。\n"
+                "對於使用者的提問，請回覆重點的關鍵字，不要重述問題。\n"
+                "回答的總字數請幫我控制在 100 字左右，不要太長。"
+            )
+            
+            # 💡 依照簡報：設定 GenerateContentConfig
+            ai_config = types.GenerateContentConfig(
+                max_output_tokens=500,
+                system_instruction=instruction_text
+            )
+            
+            # 💡 修正點：將模型改回穩定的主流模型 'gemini-2.5-flash'
+            response = client.models.generate_content(
+                model='gemini-2.5-flash',  
+                contents=query_text,
+                config=ai_config,
+            )
+            
+            # 💡 依照簡報邏輯：檢查並給予回應
+            if response and response.text:
+                info = response.text
+            else:
+                info = "抱歉，我現在無法生成回應，請稍後再試。"
                 
-        info += result
-        
-    elif action == "input.unknown":
-        # 建立設定物件，設定希望限制的最大 Token 數
-        ai_config = types.GenerateContentConfig(
-            max_output_tokens=1000
-        )
-        
-        # 呼叫 Gemini 模型處理未知的輸入
-        response = client.models.generate_content(
-            model='gemini-3.5-flash',
-            contents=req["queryResult"]["queryText"],
-            config=ai_config,
-        )
-        
-        info = response.text
-        
+        except Exception as e:
+            info = f"Gemini 呼叫失敗。錯誤訊息: {str(e)}"
+
     return make_response(jsonify({"fulfillmentText": info}))
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 
         
